@@ -43,7 +43,7 @@ h1{
   display:block;
   border-radius:50%;
   box-shadow:0 0 0 6px #fff,0 0 0 10px #f6b73c,0 8px 30px rgba(0,0,0,.55);
-  transition:transform 5.5s cubic-bezier(.12,.78,.17,1);
+  /* Sin transition: la animación la controla requestAnimationFrame */
 }
 .pointer{
   position:absolute;
@@ -189,12 +189,13 @@ const options = [
   "🌆 Imanta Roof Top + jarra en BBC",
   "🍹 Sabio Gastrobar + granizado",
   "🎰 La Torre Gampling",
-  "🍗 Alitas La María + jarra en BBC"
+  "🍗 Alitas La María + jarra en BBC",
+  "🔥 Carne llanera + Shorty"
 ];
 
 const colors = [
   "#ff405c","#ff8a34","#f6b73c","#27c49b",
-  "#4d8dff","#9b59ff","#ec4fbc"
+  "#4d8dff","#9b59ff","#ec4fbc","#c0392b"
 ];
 
 const canvas = document.getElementById("wheel");
@@ -225,7 +226,7 @@ function drawWheel(){
     ctx.moveTo(cx,cy);
     ctx.arc(cx,cy,radius,start,end);
     ctx.closePath();
-    ctx.fillStyle = colors[i];
+    ctx.fillStyle = colors[i % colors.length];
     ctx.fill();
     ctx.strokeStyle = "rgba(255,255,255,.9)";
     ctx.lineWidth = 5;
@@ -235,10 +236,7 @@ function drawWheel(){
     ctx.translate(cx,cy);
     ctx.rotate(start + arc/2);
 
-    // Las opciones permanecen ocultas.
-    // Solo mostramos un número de referencia para distinguir
-    // visualmente los segmentos, sin revelar los premios.
-    ctx.rotate(0);
+    // Las opciones permanecen ocultas: solo se muestra un número por segmento.
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     ctx.fillStyle = "rgba(255,255,255,.85)";
@@ -315,13 +313,12 @@ function spin(){
   // Random target; 7-10 complete rotations plus random angle.
   const extraTurns = 7 + Math.floor(Math.random()*4);
   const randomAngle = Math.random()*TAU;
+  const startRotation = rotation;
   rotation += extraTurns*TAU + randomAngle;
 
   const duration = 5500;
   const start = performance.now();
-  const startRotation = rotation - (extraTurns*TAU + randomAngle);
-
-  let lastTickAngle = startRotation;
+  let lastSector = Math.floor(startRotation/arc);
 
   function animate(now){
     const elapsed = now-start;
@@ -333,12 +330,11 @@ function spin(){
 
     canvas.style.transform = `rotate(${current}rad)`;
 
-    // Tick based on wheel sector crossings
-    const sector = Math.floor((current+arc/2)/arc);
-    const lastSector = Math.floor((lastTickAngle+arc/2)/arc);
+    // Tick cada vez que una línea divisoria pasa por el puntero
+    const sector = Math.floor(current/arc);
     if(sector !== lastSector){
       tick();
-      lastTickAngle=current;
+      lastSector = sector;
     }
 
     if(progress<1){
@@ -351,10 +347,10 @@ function spin(){
 }
 
 function finish(){
-  // Pointer is at top. Determine which original sector is under it.
+  // El puntero está arriba y el segmento 0 empieza justo arriba.
+  // Girar la ruleta r radianes (horario) deja bajo el puntero el ángulo -r de la ruleta.
   const normalized = ((rotation % TAU) + TAU) % TAU;
-  let index = Math.floor((TAU - normalized + arc/2) % TAU / arc);
-  index = (index + options.length) % options.length;
+  const index = Math.floor(((TAU - normalized) % TAU) / arc) % options.length;
 
   result.innerHTML = `🎉 <span>El plan elegido es:<br><strong>${options[index]}</strong></span>`;
   result.classList.add("win");
