@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ruleta de Planes 🎡</title>
+<style>
+*{box-sizing:border-box}
+body{
+  margin:0;
+  min-height:100vh;
+  font-family:Arial,Helvetica,sans-serif;
+  background:radial-gradient(circle at top,#3d1b63,#160b2d 65%,#090414);
+  color:#fff;
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  padding:25px;
+}
+.container{
+  width:min(900px,100%);
+  text-align:center;
+}
+h1{
+  margin:0 0 8px;
+  font-size:clamp(2rem,6vw,4rem);
+  text-shadow:0 4px 15px rgba(0,0,0,.45);
+}
+.subtitle{
+  margin:0 0 25px;
+  opacity:.85;
+  font-size:1.05rem;
+}
+.wheel-wrap{
+  position:relative;
+  width:min(620px,92vw);
+  aspect-ratio:1;
+  margin:0 auto 25px;
+}
+#wheel{
+  width:100%;
+  height:100%;
+  display:block;
+  border-radius:50%;
+  box-shadow:0 0 0 10px #fff,0 0 0 15px #f6b73c,0 15px 50px rgba(0,0,0,.55);
+  transition:transform 5.5s cubic-bezier(.12,.78,.17,1);
+}
+.pointer{
+  position:absolute;
+  z-index:5;
+  top:-16px;
+  left:50%;
+  transform:translateX(-50%);
+  width:0;
+  height:0;
+  border-left:24px solid transparent;
+  border-right:24px solid transparent;
+  border-top:48px solid #ff405c;
+  filter:drop-shadow(0 4px 4px rgba(0,0,0,.45));
+}
+.center{
+  position:absolute;
+  width:78px;
+  height:78px;
+  left:50%;
+  top:50%;
+  transform:translate(-50%,-50%);
+  border-radius:50%;
+  background:#fff;
+  border:7px solid #f6b73c;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  color:#2a123f;
+  font-weight:900;
+  font-size:13px;
+  box-shadow:0 3px 12px rgba(0,0,0,.4);
+  pointer-events:none;
+}
+button{
+  border:0;
+  border-radius:999px;
+  padding:17px 42px;
+  font-size:1.15rem;
+  font-weight:800;
+  cursor:pointer;
+  color:#fff;
+  background:linear-gradient(135deg,#ff405c,#ff8a34);
+  box-shadow:0 7px 20px rgba(255,64,92,.35);
+  transition:.2s;
+}
+button:hover{transform:translateY(-2px);filter:brightness(1.08)}
+button:disabled{opacity:.55;cursor:not-allowed;transform:none}
+.secondary{
+  margin-top:12px;
+  padding:12px 25px;
+  font-size:.95rem;
+  background:rgba(255,255,255,.13);
+  border:1px solid rgba(255,255,255,.3);
+  box-shadow:none;
+}
+.secondary:hover{background:rgba(255,255,255,.2)}
+.result{
+  min-height:76px;
+  margin-top:22px;
+  padding:15px 20px;
+  border-radius:18px;
+  background:rgba(255,255,255,.1);
+  backdrop-filter:blur(8px);
+  font-size:1.25rem;
+  font-weight:700;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+.result.win{
+  animation:pop .55s ease;
+  background:rgba(246,183,60,.18);
+  border:1px solid rgba(246,183,60,.55);
+}
+.hint{margin-top:12px;font-size:.82rem;opacity:.6}
+.options-list{
+  margin:15px auto 0;
+  width:min(700px,100%);
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(230px,1fr));
+  gap:9px;
+  text-align:left;
+}
+.option-item{
+  padding:11px 14px;
+  border-radius:12px;
+  background:rgba(255,255,255,.08);
+  border:1px solid rgba(255,255,255,.12);
+  font-size:.92rem;
+}
+.option-item.winner{
+  background:rgba(246,183,60,.2);
+  border-color:rgba(246,183,60,.65);
+  font-weight:800;
+}
+@keyframes pop{
+  0%{transform:scale(.9);opacity:0}
+  70%{transform:scale(1.04)}
+  100%{transform:scale(1);opacity:1}
+}
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>🎡 ¿Qué hacemos hoy?</h1>
+  <p class="subtitle">Gira la ruleta y descubre el plan elegido por el destino 😎</p>
+
+  <div class="wheel-wrap">
+    <div class="pointer"></div>
+    <canvas id="wheel" width="900" height="900"></canvas>
+    <div class="center">¡GIRA!</div>
+  </div>
+
+  <button id="spinBtn">🎯 GIRAR LA RULETA</button>
+
+  <div id="result" class="result">
+    Pulsa el botón para descubrir el plan...
+  </div>
+
+  <button id="showOptionsBtn" class="secondary" hidden>👀 Ver otras opciones</button>
+
+  <div id="optionsList" class="options-list" hidden></div>
+
+  <div class="hint">🔊 Activa el sonido de tu dispositivo para escuchar la ruleta.</div>
+</div>
+
+<script>
+const options = [
+  "🎬 Cine + pizza en BBC",
+  "🥩 Churrasco en La Cosecha + BBC",
+  "🍕 Terraza K3: pizza, canelazo o granizado",
+  "🌆 Imanta Roof Top + jarra en BBC",
+  "🍹 Sabio Gastrobar + granizado",
+  "🎰 La Torre Gampling",
+  "🍗 Alitas La María + jarra en BBC"
+];
+
+const colors = [
+  "#ff405c","#ff8a34","#f6b73c","#27c49b",
+  "#4d8dff","#9b59ff","#ec4fbc"
+];
+
+const canvas = document.getElementById("wheel");
+const ctx = canvas.getContext("2d");
+const spinBtn = document.getElementById("spinBtn");
+const result = document.getElementById("result");
+const showOptionsBtn = document.getElementById("showOptionsBtn");
+const optionsList = document.getElementById("optionsList");
+
+const TAU = Math.PI * 2;
+const arc = TAU / options.length;
+let rotation = 0;
+let spinning = false;
+let audioCtx = null;
+
+function drawWheel(){
+  const cx = canvas.width/2;
+  const cy = canvas.height/2;
+  const radius = canvas.width/2 - 8;
+
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+
+  for(let i=0;i<options.length;i++){
+    const start = -Math.PI/2 + i*arc;
+    const end = start + arc;
+
+    ctx.beginPath();
+    ctx.moveTo(cx,cy);
+    ctx.arc(cx,cy,radius,start,end);
+    ctx.closePath();
+    ctx.fillStyle = colors[i];
+    ctx.fill();
+    ctx.strokeStyle = "rgba(255,255,255,.9)";
+    ctx.lineWidth = 5;
+    ctx.stroke();
+
+    ctx.save();
+    ctx.translate(cx,cy);
+    ctx.rotate(start + arc/2);
+
+    // Las opciones permanecen ocultas.
+    // Solo mostramos un número de referencia para distinguir
+    // visualmente los segmentos, sin revelar los premios.
+    ctx.rotate(0);
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillStyle = "rgba(255,255,255,.85)";
+    ctx.font = "bold 34px Arial";
+    ctx.shadowColor = "rgba(0,0,0,.35)";
+    ctx.shadowBlur = 4;
+
+    const textX = radius * .67;
+    ctx.fillText(String(i + 1), textX, 0);
+    ctx.restore();
+  }
+
+  // Decorative center ring
+  ctx.beginPath();
+  ctx.arc(cx,cy,55,0,TAU);
+  ctx.fillStyle="#fff";
+  ctx.fill();
+  ctx.lineWidth=8;
+  ctx.strokeStyle="#f6b73c";
+  ctx.stroke();
+}
+
+function getAudio(){
+  if(!audioCtx){
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  }
+  if(audioCtx.state === "suspended") audioCtx.resume();
+  return audioCtx;
+}
+
+function tick(){
+  const ac = getAudio();
+  const osc = ac.createOscillator();
+  const gain = ac.createGain();
+  osc.type="square";
+  osc.frequency.value=850;
+  gain.gain.setValueAtTime(.0001,ac.currentTime);
+  gain.gain.exponentialRampToValueAtTime(.06,ac.currentTime+.005);
+  gain.gain.exponentialRampToValueAtTime(.0001,ac.currentTime+.045);
+  osc.connect(gain).connect(ac.destination);
+  osc.start();
+  osc.stop(ac.currentTime+.05);
+}
+
+function winSound(){
+  const ac = getAudio();
+  [523,659,784,1047].forEach((freq,i)=>{
+    const osc=ac.createOscillator();
+    const gain=ac.createGain();
+    osc.type="sine";
+    osc.frequency.value=freq;
+    const t=ac.currentTime+i*.13;
+    gain.gain.setValueAtTime(.0001,t);
+    gain.gain.exponentialRampToValueAtTime(.14,t+.02);
+    gain.gain.exponentialRampToValueAtTime(.0001,t+.32);
+    osc.connect(gain).connect(ac.destination);
+    osc.start(t);
+    osc.stop(t+.34);
+  });
+}
+
+function spin(){
+  if(spinning) return;
+
+  getAudio();
+  spinning=true;
+  spinBtn.disabled=true;
+  result.classList.remove("win");
+  result.textContent="🎲 La ruleta está girando...";
+  showOptionsBtn.hidden = true;
+  optionsList.hidden = true;
+  optionsList.innerHTML = "";
+
+  // Random target; 7-10 complete rotations plus random angle.
+  const extraTurns = 7 + Math.floor(Math.random()*4);
+  const randomAngle = Math.random()*TAU;
+  rotation += extraTurns*TAU + randomAngle;
+
+  const duration = 5500;
+  const start = performance.now();
+  const startRotation = rotation - (extraTurns*TAU + randomAngle);
+
+  let lastTickAngle = startRotation;
+
+  function animate(now){
+    const elapsed = now-start;
+    const progress = Math.min(elapsed/duration,1);
+
+    // Ease out cubic
+    const eased = 1-Math.pow(1-progress,3);
+    const current = startRotation + (rotation-startRotation)*eased;
+
+    canvas.style.transform = `rotate(${current}rad)`;
+
+    // Tick based on wheel sector crossings
+    const sector = Math.floor((current+arc/2)/arc);
+    const lastSector = Math.floor((lastTickAngle+arc/2)/arc);
+    if(sector !== lastSector){
+      tick();
+      lastTickAngle=current;
+    }
+
+    if(progress<1){
+      requestAnimationFrame(animate);
+    }else{
+      finish();
+    }
+  }
+  requestAnimationFrame(animate);
+}
+
+function finish(){
+  // Pointer is at top. Determine which original sector is under it.
+  const normalized = ((rotation % TAU) + TAU) % TAU;
+  let index = Math.floor((TAU - normalized + arc/2) % TAU / arc);
+  index = (index + options.length) % options.length;
+
+  result.innerHTML = `🎉 <span>El plan elegido es:<br><strong>${options[index]}</strong></span>`;
+  result.classList.add("win");
+
+  // Las demás opciones siguen ocultas hasta que el usuario las solicite.
+  showOptionsBtn.hidden = false;
+  showOptionsBtn.onclick = () => {
+    optionsList.innerHTML = options.map((option, i) =>
+      `<div class="option-item ${i === index ? "winner" : ""}">
+        ${i === index ? "🏆 " : ""}${option}
+      </div>`
+    ).join("");
+    optionsList.hidden = false;
+    showOptionsBtn.hidden = true;
+  };
+
+  winSound();
+
+  // Small celebration vibration where supported
+  if(navigator.vibrate) navigator.vibrate([100,50,150]);
+
+  spinning=false;
+  spinBtn.disabled=false;
+}
+
+spinBtn.addEventListener("click",spin);
+drawWheel();
+</script>
+</body>
+</html>
